@@ -1,0 +1,359 @@
+// *********************************************************************************
+// *********************************************************************************
+//
+//								IMP16-C CPU Definition
+//
+// *********************************************************************************
+// *********************************************************************************
+//
+//	Replacements made in decoding
+//
+//	%7		Hexadecimal of lower 7 bits
+//	%8 		Hexadecimal of lower 8 bits
+//	%S 		Signed Hexadecimal of lower 8 bits
+//	%C 		Command from lower 2 bits (RXCH, RCPY, RXOR, RAND)
+//
+//	Replacements made in generation.
+//
+//	$A 		Effective address from bit 9-0
+//	$F 		Flag bits from 10-8 (see table 3-13)
+//	$R 		Register number from bit 11,10
+//	$V 		Register number from bit 9,8
+//	$T 		Register number from bit 10.
+//
+//	$EAC 	Effective address code from bits 9,8,7
+//	$EAR 	Effective address PC(relative) from bit 7
+//	$IMM	Immediate from bits 7-0, using bits 7.
+//
+// *********************************************************************************
+//
+//								  CPU State variables
+//
+// *********************************************************************************
+
+:WORD16 	AC0,AC1,AC2,AC3;				// Accumulators
+:WORD16 	FLAGS; 							// Flags, except LINK, OVERFLOW and CARRY
+:BYTE8 		L,OV,CY;						// Link overflow carry flags.
+:BYTE8 		INTEN;							// Interrupt enable.
+:BYTE8 		SEL; 							// Selector flag.
+:BYTE8 		HALT;							// Halt flag
+:WORD16		PC;								// Program Counter
+:WORD16 	STACK[16];						// CPU Internal Stack
+:BYTE8 		SPTR;							// Stack Pointer
+
+:WORD16 	MAR,MDR; 						// Memory address and Data Register
+:WORD16 	IR;								// Instruction Register
+
+:WORD16* 	pAC[4]={ &AC0,&AC1,&AC2,&AC3 };	// Access via number.
+:LONG32 	temp32;							// 32 bit temporary.
+
+// *********************************************************************************
+//
+//							Load/Store Instructions (3.6.1)
+//
+// *********************************************************************************
+
+1000----- 	"LD $R,$A"						// Load Direct
+		$EAC;READ();
+		AC$R = MDR;
+
+1001----- 	"LD $R,@$A"						// Load Indirect
+		$EAC;READ();MAR = MDR;READ();
+		AC$R = MDR;
+
+1010----- 	"ST $R,$A"						// Store Direct
+		$EAC;
+		MDR = AC$R;WRITE();
+
+1011----- 	"ST $R,@$A"						// Store Indirect
+		$EAC;READ();MAR = MDR;
+		MDR = AC$R;WRITE();
+
+// *********************************************************************************
+//
+//							Arithmetic Instructions (3.6.2)
+//
+// *********************************************************************************
+
+1100-----	"ADD $R,$A"						// Add
+		$EAC;READ();
+		ADD16(AC$R,MDR,0);
+
+1101-----	"SUB $R,$A"						// Subtract
+		$EAC;READ();
+		ADD16(AC$R,MDR^0xFFFF,1);
+
+:#define ADD16(a,d,n) 	temp32 = (a)+(d)+(n);_CARRY();_OVERFLOW();a = temp32;
+
+:#define _CARRY() 		CY = ((temp32 >> 16) & 1)
+:#define _OVERFLOW()		OV = (((a^d) & 0x8000) == 0 && ((a^temp32) & 0x8000) != 0)
+
+// *********************************************************************************
+//
+//							Logical Instructions (3.6.3)
+//
+// *********************************************************************************
+
+01100----	"AND $T,$A"						// And
+		$EAC;READ();
+		AC$T &= MDR;
+		
+01101----	"AND $T,$A"						// Or
+		$EAC;READ();
+		AC$T |= MDR;
+
+// *********************************************************************************
+//
+//							 Skip Instructions (3.6.4)
+//
+// *********************************************************************************
+
+011110---	"ISZ $A"						// Increment, skip if zero
+		$EAC;
+		READ();MDR++;WRITE();
+		if (MDR == 0) PC++;
+
+011111---	"DSZ $A"						// Decrement, skip if zero
+		$EAC;
+		READ();MDR--;WRITE();
+		if (MDR == 0) PC++;
+
+1110-----	"SKG $R,$A"						// Skip if greater.
+		$EAC;READ();
+		if (((UINT16)AC$R) > ((UINT16)MDR)) PC++;
+
+1111----- 	"SKNE $R,$A"					// Skip if not equal.
+		$EAC;READ();
+		if (AC$R != MDR) PC++;
+
+01110---- 	"SKAZ $T,$A"					// Skip if AND is zero.
+		$EAC;READ();
+		if ((AC$T & MDR) != 0) PC++;
+
+// *********************************************************************************
+//
+//						Transfer of Control Instructions (3.6.5)
+//
+// *********************************************************************************
+
+001000---	"JMP $A"
+		$EAC;PC = MAR
+
+001001---	"JMP @$A"
+		$EAC;READ();PC = MDR
+
+001010---	"JSR $A"
+		$EAC;PUSH(PC);PC = MAR
+
+001011---	"JSR @$A"
+		$EAC;READ();PUSH(PC);PC = MDR
+
+000000111 	"JSRI %7"
+		PUSH(PC);PC = IR | 0xFF80;
+
+000000010	"RTI %7"
+		PC = PULL() + (IR & 0x7F);
+		INTEN = 1;
+
+000000100	"RTS %7"
+		PC = PULL() + (IR & 0x7F);
+
+:#define PUSH(n) 	STACK[(SPTR++) & 0x0F] = (n)
+:#define PULL() 	STACK[(--SPTR) & 0x0F]
+
+// *********************************************************************************
+
+00010001- 	"BOC 1,%S"						// Branch (AC0 = 0)
+		BRANCH(AC0 == 0);
+
+00010010- 	"BOC 2,%S"						// Branch (AC0 >= 0)
+		BRANCH((AC0 & 0x8000) == 0);
+
+00010011- 	"BOC 3,%S"						// Branch (AC0 bit 0 set)
+		BRANCH((AC0 & 0x0001) != 0);
+
+00010100- 	"BOC 4,%S"						// Branch (AC0 bit 1 set)
+		BRANCH((AC0 & 0x0002) != 0);
+
+00010101- 	"BOC 5,%S"						// Branch (AC0 != 0)
+		BRANCH(AC0 != 0);
+
+00011000- 	"BOC 8,%S"						// Branch (Stack Overflow)
+		BRANCH((SPTR & 0xF0) != 0);
+
+00011001- 	"BOC 9,%S"						// Branch (Int Enabled)
+		BRANCH(INTEN != 0);
+
+00011010- 	"BOC 10,%S"						// Branch (Carry/Overflow set)
+		BRANCH((SEL == 0) ? CY:OV );
+
+00011011- 	"BOC 11,%S"						// Branch (AC0 <= 0)
+		BRANCH((AC0 == 0) || ((AC0 & 0x8000) != 0));
+
+:#define BRANCH(t) if (t) { $EAR;PC = MAR; }
+
+// *********************************************************************************
+//
+//							  Shift Instructions (3.6.6)
+//
+// *********************************************************************************
+
+010110--0 	"ROL $V,%S" 	
+		for (int i = 0;i < (IR & 0x1F);i++)	AC&V = RotateLeft(AC&V,SEL);
+
+010110--1 	"ROR $V,%S" 	
+		for (int i = (IR & 0x1F);i < 0x20;i++)	AC&V = RotateRight(AC&V,SEL);
+
+010111--0 	"SHL $V,%S" 	
+		for (int i = 0;i < (IR & 0x1F);i++)	AC$V = ShiftLeft(AC$V,SEL);
+
+010111--1 	"SHR $V,%S" 	
+		for (int i = (IR & 0x1F);i < 0x20;i++)	AC$V = ShiftRight(AC$V,SEL);
+
+:WORD16 RotateLeft(WORD16 n,BYTE8 SEL) {
+:	if (SEL == 0) {
+:		n = (n << 1) | (n >> 15);
+:	} else {
+:		BYTE8 newL = (n & 0x8000) ? 1 : 0;
+:		n = (n << 1) | (L ? 1 : 0);
+:		L = newL;
+:	}
+:	return 0;	
+:}
+
+:WORD16 RotateRight(WORD16 n,BYTE8 SEL) {
+:	if (SEL == 0) {
+:		n = (n >> 1) | (n << 15);
+:	} else {
+:		BYTE8 newL = (n & 1);
+:		n = (n >> 1) | (L ? 0x8000 : 0x0000);
+:		L = newL;
+:	}
+:	return 0;	
+:}
+
+:WORD16 ShiftLeft(WORD16 n,BYTE8 SEL) {
+:	if (SEL == 0) {
+:		n = n >> 1;
+:	} else {
+:		L = (n & 0x8000) ? 1 : 0;n = n >> 1;
+:	}
+:	return n;
+:}
+
+:WORD16 ShiftRight(WORD16 n,BYTE8 SEL) {
+:	if (SEL == 0) {
+:		n = (n >> 1) & 0x7FFF;
+:	} else {
+:		n = ((n >> 1) & 0x7FFF) | (L ? 0x8000:0x0000);L = 0;
+:	}
+:	return 0;	
+:}
+
+// *********************************************************************************
+//
+//							  Register Instructions (3.6.7)
+//
+// *********************************************************************************
+
+010000---	"PUSH $V"
+		PUSH(AC$V);
+
+010001---	"PULL $V"
+		AC$V = PULL();
+
+010101--- 	"XCHRS $V"
+		MDR = AC$V;AC$V = PULL();PUSH(MDR);
+
+010011--- 	"LI $V,%S"		
+		AC$V = $IMM
+
+010010--- 	"AISZ $V,%S"		
+		ADD16(AC$V,$IMM,0);
+		if (AC$V == 0) PC++;
+
+010100--- 	"CAI $V,%S"		
+		AC$V = (AC$V ^ 0xFFFF)+($IMM);
+
+0011----0 	"RADD $R,$V"
+		ADD16(AC$V,AC$R,0)
+
+0011----1 	"R%C $R,$V"
+		RegisterOperation(IR & 3,&AC$R,&AC$V);
+
+:void RegisterOperation(BYTE8 op,WORD16 *psr,WORD16 *pdr) {
+:	switch (op) {
+:		case 0:	MDR = *psr;*psr = *pdr;*pdr = MDR;break; 		// RXCH
+:		case 1: *pdr = *psr;break;								// RCPY
+:		case 2: *pdr ^= *psr;break;								// RXOR
+:		case 3: *pdr &= *psr;break;								// RAND
+:	}
+:)		
+
+// *********************************************************************************
+//
+//						Input/Output & Halt Instructions (3.6.8)
+//
+// *********************************************************************************
+
+000001000 	"RIN %7" 						
+		MAR = (IR & 0x7F) + AC3;AC0 = READIO(MAR);
+
+000001100 	"ROUT %7"
+		MAR = (IR & 0x7F) + AC3;WRITEIO(MAR,AC0);
+
+000000000	"HALT"
+		HALT = 1;		
+
+000000001 	"PUSHF"
+		FLAGS = FLAGS & 0x1FFF;
+		if (CY) FLAGS |= 0x2000;
+		if (OV) FLAGS |= 0x4000;
+		if (L) FLAGS |= 0x8000;
+		PUSH(FLAGS);
+
+000000101	"PULLF"
+		FLAGS = PULL();
+		CY = (FLAGS >> 13) & 1;
+		OV = (FLAGS >> 14) & 1;
+		L = (FLAGS >> 15) & 1;
+
+00001---0 	"SFLG $F"
+		MDR = (IR >> 8) & 7;
+		SETFLAG(MDR);
+		if (MDR == 1) INTEN = 1;
+		if (MDR == 2) SEL = 1;
+
+00001---1 	"PFLG $F"
+		MDR = (IR >> 8) & 7;
+		PULSEFLAG(MDR);
+		if (MDR == 1) INTEN = 0;
+		if (MDR == 2) SEL = 0;
+
+// *********************************************************************************
+//
+//							Reset IMP16-C CPU (Section 2.5.1)
+//
+// *********************************************************************************
+
+:void IMP16Reset(void) {
+:	AC0=AC1=AC2=AC3=0;						// Reset AC
+:	HALT=SEL=FLAGS=L=OV=CY=INTEN=0; 		// Reset flags
+:	for (int i = 0;i < 16;i++) STACK[i]=0;	// Clear stuff out of stack
+:	SPTR=0;									// Reset SP
+:	PC = 0xFFFE; 							// And go from here.
+:}
+
+// *********************************************************************************
+//
+//								Interrupt IMP16-C (Chapter 7)
+//
+// *********************************************************************************
+
+:void IMP16Interrupt(void) {
+:	if (INTEN != 0) { 						// Interrupt enabled ?
+:		PUSH(PC);							// Save PC on stack
+:		PC = 1;								// Switch to code at $0001
+:		INTEN = 0;							// Disable further interrupts.
+:	}	
+:}
