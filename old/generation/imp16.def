@@ -1,0 +1,250 @@
+// **********************************************************************************************************************************************************
+// **********************************************************************************************************************************************************
+//
+//																			IMP16-C Core
+//																			============
+//
+//	#7 		7 bit unsigned operand.
+//	#8 		8 bit signed operand.
+//	#D 		Direction L,R depends on operand 
+//	#F 		Control flag instruction (P/F) depends on operand
+//	#I 		8 bit value, 2 digit hex 
+//	#Q 		Rotation quantity (abs(bits 0-7))
+//	#R 		Branch target, e.g. 4 byte address PC relative.
+//	#X 		Register Instruction (depends on other bits) complete instruction.
+//
+//	%8 		Mask for 8 bit operand (opcode & 0xFF)
+//	%A 		Effective Address derived from bit 8,9 (mode) 0-n - e.g. #I, #R,  #8(2) or #8(3)
+//	%C 		Condition Number (bits 8-11) as 1 hex digit.
+//	%E 		Code for Effective Address Calculation, same as %A code to put in 'eac' 
+//	%R 		Register specified by bit 10,11 of offset (1 digit)
+//	%S 		Register specified by bit 9,10 of offset (1 digit)
+//	%T 		Test implied by condition number (bits 8-11)
+//
+//	Opcodes are tested on the upper 8 bits. Opcodes with 6 zeros (e.g. 00-03) are 100+x where xxx is bits 8-6. Opcode should still hold the 
+//	original opcode.
+//
+// **********************************************************************************************************************************************************
+// **********************************************************************************************************************************************************
+
+:static WORD16 		ac0,ac1,ac2,ac3; 																					// Main Register
+:static WORD16 		pc;																									// Program Counter
+:static WORD16 		stack[16];																							// Stack
+:static BYTE8 		sp; 																								// Stack Pointer.
+
+:static BYTE8 		carry;																								// Carry Flag
+:static BYTE8 		link;																								// Link Flag
+:static BYTE8 		overflow;																							// Overflow Flag.
+:static WORD16 		flags0_12; 																							// Other thirteen flags.
+
+:static BYTE8 		interruptEnabled; 																					// Control flag, interrupt enabled
+:static BYTE8 		sel;																								// Control flag, sel (for shift and rotate)
+:static WORD16 		cycles; 																							// Down counting cycle counter.
+
+:static WORD16 		opcode;																								// Current opcode.
+:static WORD16 		eac;																								// EAC result
+:static WORD16 		temp16;																								// Work register
+:static INT16 		i1,i2;																								// Signed 16 bit integers
+
+:#define SKIP(test) if (test) pc++ 																						// Skip on condition macro
+
+:#define PUSH(n)	{ if (sp < 16) stack[sp] = (n); sp++; }																// Push on stack
+:#define PULL()		( (sp < 17) ? stack[--sp] : (--sp,0) )																// Pull off stack
+
+:#define CONSTRUCTFLAGREGISTER() (flags0_12 | (carry << 13) | (overflow << 14) | (link << 15))							// Make 16 bit flag register.
+
+:#define SEXT(n) 	( ((n) & 0x80) ? ((n) | 0xFF00) : (n) )																// Sign extend 8 to 16 bits.
+
+:static void resetIMP16(void) {																							// CPU Reset/Clear.
+:	BYTE8 i;
+:	pc = 0xFFFE;																										// Program counter is $FFFE.
+:	ac0 = ac1 = ac2 = ac3 = sp = carry = link = overflow = flags0_12 = interruptEnabled = sel = 0;						// All registers are cleared.
+:	for (i = 0;i < 16;i++) stack[i] = 0;																				// So is the stack.
+:	cycles = 0x100;																										// Enough cycles so interrupt is delayed a bit
+:}
+
+:static void interruptIMP16(void) { 																					// Trigger interrupt.
+:	if (interruptEnabled) {
+:		interruptEnabled = 0;PUSH(pc);pc = 1;
+:	}	
+:}
+
+// **********************************************************************************************************************************************************
+//																Load and Store Instructions
+// **********************************************************************************************************************************************************
+
+80-8F 		5		"LD %R,%A" 			%E;ac%R = readMemory(eac) 														// Read memory
+90-9F		6 		"LD %R,@%A"			%E;ac%R = readMemory(readMemory(eac))											// Read memory indirect
+A0-AF 		5 		"ST %R,%A"			%E;writeMemory(eac,ac%R)														// Write memory
+B0-BF 		8 		"ST %R,@%A"			%E;writeMemory(readMemory(eac),ac%R)											// Write memory indirect
+
+// **********************************************************************************************************************************************************
+//																Arithmetic Instructions
+// **********************************************************************************************************************************************************
+
+C0-CF 		5 		"ADD %R,%A"			%E;ac%R = ADD16(ac%R,readMemory(eac)) 											// Add
+D0-DF 		5 		"SUB %R,%A"			%E;ac%R = SUB16(ac%R,readMemory(eac))											// Subtract
+
+:#define ADD16(a,b) 	addFunction(a,b)																				// 16 bit add
+:#define SUB16(a,b) 	addFunction(a,((b) ^ 0xFFFF)+1)																	// 16 bit subtract uses 2's complement
+
+:static WORD16 addFunction(WORD16 w1,WORD16 w2) {
+:	WORD16 result = w1 + w2;
+:	carry = ((((LONG32)w1)+((LONG32)w2)) >> 16) & 1;																	// Need a 32 bit add to get the carry.
+:	overflow = 0;
+:	if (((w1 ^ w2) & 0x8000) == 0) { 																					// Input signs the same.
+:		if ((result ^ w2) & 0x8000) overflow = 1; 																		// But different to the result - overflow.
+:	}
+:	return result;
+:}
+
+// **********************************************************************************************************************************************************
+//																	Logical Instructions
+// **********************************************************************************************************************************************************
+
+60-67 		5 		"AND %R,%A"			%E;ac%R &= readMemory(eac) 														// Logical And
+68-6F 		5 		"OR %R,%A"			%E;ac%R |= readMemory(eac) 														// Logical Or
+
+// **********************************************************************************************************************************************************
+//																	 Skip Instructions
+// **********************************************************************************************************************************************************
+
+78-7B		7 		"ISZ %A"			%E;temp16 = readMemory(eac)+1;writeMemory(eac,temp16);SKIP(temp16 == 0)			// Increment EA, skip if zero
+7C-7F		7 		"DSZ %A"			%E;temp16 = readMemory(eac)-1;writeMemory(eac,temp16);SKIP(temp16 == 0) 		// Decrement EA, skip if zero
+
+E0-EF  		8 		"SKG %R,%A"			%E;i1 = ac%R;i2 = readMemory(eac);SKIP(i1 > i2) 								// Skip if Greater, based on signed.
+F0-FF 		8 		"SKNE %R,%A"		%E;SKIP(ac%R != readMemory(eac)) 												// Skip if not equal.
+
+70-77 		6 		"SKAZ %R,%A"		%E;SKIP((ac%R & readMemory(eac)) == 0)											// And and skip if zero.
+
+// **********************************************************************************************************************************************************
+//															  Transfer of control instructions
+// **********************************************************************************************************************************************************
+
+20-23 		3 		"JMP %A"			%E;pc = eac 																	// Jump
+24-27 		5 		"JMP @%A"			%E;pc = readMemory(eac) 														// Jump Indirect
+
+28-2B 		4 		"JSR %A"			%E;PUSH(pc);pc = eac 															// Call
+2C-2F 		6 		"JSR @%A"			%E;PUSH(pc);pc = readMemory(eac)												// Call Indirect
+
+10-1F 		4 		"BOC %C,#R"			temp16 = SEXT(%8);if (%T) pc += temp16 											// Branch if condition true.
+
+102 		5 		"RTI #7"			interruptEnabled = 1;pc = PULL() + (%8) 										// Return, allow further interrupts, skip
+104 		4 		"RTS #7"			pc = PULL() + (%8) 																// Return and maybe skip
+
+107 		4		"JSRI FF#I"			PUSH(pc);pc = 0xFF00|(%8) 														// JSR Implied - works because bit 7 is 1.
+
+// **********************************************************************************************************************************************************
+//																	Rotate instructions
+// **********************************************************************************************************************************************************
+
+58-5B 		4 		"RO#D %S,#Q" 		rotate(&ac%S,%8)																// ROL and ROR.
+5C-5F 		4 		"SH#D %S,#Q" 		shift(&ac%S,%8)																	// SHL and SHR.
+
+:static void shift(WORD16 *a,WORD16 qty) {
+:	BYTE8 count = qty & 0xF;																							// How many times (mod 16)
+:	if (qty & 0x80) count = (256-qty) & 0xF;																			// Going right, value is -ve.
+:	while (count != 0) {																								// Do as many times as required.
+:		count--;
+:		cycles -= 3;
+:		if (qty & 0x80) {																								// Right (-ve)
+:			if (sel != 0) link = (*a) & 1;
+:			*a = (*a) >> 1;
+:		} else { 																										// Left (+ve)
+:			if (sel != 0) link = ((*a) & 0x8000) ? 1 : 0;
+:			*a = (*a) << 1;
+:		}	
+:	}
+:}
+
+:static void rotate(WORD16 *a,WORD16 qty) {
+:	BYTE8 rotSize = 16 + sel; 																							// Rotate 16 or 17 times to be complete.
+:	BYTE8 count = qty % rotSize; 																						// Number of rotates.
+:
+:	if (qty & 0x80) { 																									// Do rotate right, by 16/17-rotate left.
+:		count = rotSize - ((256 - qty)  % rotSize);
+:	}
+:	while (count != 0) {																								// Do as many times as required.
+:		count--;
+:		cycles -= 3;
+:		temp16 = *a;
+:		if (sel == 0) {																									// 16 bit rotate.
+:			*a = (temp16 << 1) | (temp16 >> 15);
+:		} else { 																										// 17 bit rotate.
+:			*a = (temp16 << 1) | link; 																					// Shift left and put link bit in.
+:			link = (temp16 >> 15) & 1;																					// Link is the old most significant bit.
+:		}
+:	}
+:}
+
+// **********************************************************************************************************************************************************
+//															 Register and Stack Instructions
+// **********************************************************************************************************************************************************
+
+40-43 		3 		"PUSH %S"			PUSH(ac%S)																		// Push register
+44-47 		3 		"PULL %S"			ac%S = PULL() 																	// Pull register
+
+54-57 		5 		"XCHRS %S"			temp16 = PULL();PUSH(ac%S);ac%S = temp16 										// Swap Top of Stack and Register
+
+4C-4F 		3  		"LI %S,#8"			ac%S = SEXT(%8) 																// Load Register immediate
+
+48-4B 		4 		"AISZ %S,#8"		ac%S = ADD16(ac%S,SEXT(%8));SKIP(ac%S == 0)										// Add immediate sign extended, skip if zero
+
+50-53 		3 		"CAI %S,#8"			ac%S = (ac%S ^ 0xFFFF) + SEXT(%8) 												// Complement acc and add immediate
+																														// (does NOT set Carry and Overflow)
+
+30-3F 		6 		"#X %S,%R"			registerInstruction(&ac%R,&ac%S,opcode & 0x83)									// Register instructions.
+
+:static void registerInstruction(WORD16 *source,WORD16 *destination,BYTE8 function) {
+:
+:	switch(function) {
+:		case 0x00: 																										// 0.....XX is RADD
+:		case 0x01:
+:		case 0x02:
+:		case 0x03:	
+:			*destination = ADD16(*destination,*source);
+:			break;
+:		case 0x80:																										// 1.....00 is RXCH
+:			temp16 = *source;*source = *destination;*destination = temp16;
+:			break;
+:		case 0x81:																										// 1.....01 is RCPY
+:			*destination = *source;			
+:			break;
+:		case 0x82:																										// 1.....10 is RXOR
+:			*destination = (*source) ^ (*destination);			
+:			break;
+:		case 0x83:																										// 1.....11 is RAND
+:			*destination = (*source) & (*destination);			
+:			break;
+:	}
+:}
+
+// **********************************************************************************************************************************************************
+//															Input, Output, Halt and Flag
+// **********************************************************************************************************************************************************
+
+04 			7 		"RIN #7"			ac0 = readInput(ac3+%8)															// Read input device
+06 			7 		"ROUT #7"			writeOutput(ac3+%8,ac0)															// Write output device.
+
+100 		0 		"HALT"				pc-- 																			// Stop forever.
+
+101 		4 		"PUSHF" 			PUSH(CONSTRUCTFLAGREGISTER())													// Push Flags on stack.
+105 		5 		"PULLF"				expandFlagRegister(PULL())														// Pop Flags off stack.
+
+:static void expandFlagRegister(WORD16 v) {																				// Store 16 bit value into flags.
+:	flags0_12 = v & 0x1FFF;
+:	carry = (v >> 13) & 1;overflow = (v >> 14) & 1;link = (v >> 15) & 1;	
+:}
+
+08-0F 		4 		"#FFLG #7"			setControlFlag(1);if (opcode & 0x80) setControlFlag(0);							// Set and Pulse Flag.
+
+:static void setControlFlag(BYTE8 state) {
+:	switch ((opcode >> 8) & 7) {																						// Depends on bits 8-10
+:		case 1:		interruptEnabled = state;break;																		// 001 Interrupt Enabled
+:		case 2:		sel = state;break;																					// 010 Select flag for SHIFT/ROTATE
+:		default:	writeControlFlag(SEXT(opcode & 0x7F),(opcode >> 8) & 7,state,SEXT(opcode & 0xFF));					// 000,011,1xx are external flags.
+:	}
+:}
+
+103 		0 		"FRAME"			cycles = 0xFFFF 																	// This co-opts an unused opcode to 
+																														// wait for the end of frame.

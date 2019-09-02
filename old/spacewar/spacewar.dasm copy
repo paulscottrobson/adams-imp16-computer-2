@@ -1,0 +1,282 @@
+;
+;
+;
+;
+0000 2402 		Start:		
+							jmp 	@StartAddress 														; go to startup code.
+
+0001 208D 		Interrupt:																				; go to interrupt routine
+							jmp 	InterruptRoutine
+
+0002 001E		StartAddress:																			; address of startup code.
+							word 	Main
+
+0003 01BC		AKeyboard:	word 	ReadKeyboard
+0004 017C		AInit:		word 	AInitialise
+
+0005 0000 		TorpedoID: 	word 	0 																	; currently moving torpedo.
+
+0006 FF80 		ConstFF80:	word 	$FF80 																; constants.
+0007 0000 		ConstZero:	word 	0
+
+0008 010B	?
+0009 00C9	?
+000A 0103 	?
+000B 0112		AHit:		word 	Hit
+000C 015F	?
+000D 01B1		AMoveShip:	word 	MoveShip
+000E 0120		AMoveTorpedo:word 	MoveTorpedo
+
+000F 0043 		CharShip1:	word	$43																	; graphics characters used in game.
+0010 0045 		CharShip2:	word 	$45
+0011 006B 		CharTorpedo:word 	$6B
+0012 003B 		CharPlanet: word 	$3B
+0013 006A 		CharAsteroid:word 	$6A
+0014 0060 		CharBlank:	word 	$60
+
+0015 0003 		Const3:		word 	3 																	; more constants
+
+0016 00C2	?
+0017 0010 		Speed: 		word 	10
+0018 0104	?
+
+0019 0001 		CanFire1: 	word 	1
+001A 0002 		CanFire2: 	word 	1
+001B 0010		MaxTorpedoes:word 	$10 																; max number of torpedos.
+001C 0000 		Hold: 		word 	0
+001D 0000 		Freeze: 	word 	0
+
+001E 241F 		Main:		jmp		@InitVector
+001F 019A 		InitVector:	word 	Initialise
+
+0020 0000	 	Ship1: 		word 	0 																	; Line x 12 + Col x 7
+0021 1000 					word 	$1000 																; current direction
+0022 0000					word 	0 																	; timer
+0023 0000					word 	0 																	; speed
+
+0024 0000	 	Ship2: 		word 	0 																	; Line x 12 + Col x 7
+0025 1000 					word 	$1000 																; current direction
+0026 0000					word 	0 																	; timer
+0027 0000					word 	0 																	; speed
+
+0028 1100 		Torpedos: 	word 	$1100 																; Line x 12 + Col x 7
+0029 0000					word 	0 																	; Direction
+002A 0000 					word 	0 																	; Timer
+002B 7FFF 					word 	$7FFF 																; Number of moves
+
+002C 7F00 					word 	$7F00
+002D 0000					word 	0
+002E 0000 					word 	0
+002F 7FFF 					word 	$7FFF
+
+0030 D500 					word 	$D500
+0031 0000					word 	0
+0032 0000 					word 	0
+0033 7FFF 					word 	$7FFF
+
+0034 7A00 					word 	$6A00
+0035 0000					word 	0
+0036 0000 					word 	0
+0037 7FFF 					word 	$7FFF
+
+0038 A600 					word 	$A600
+0039 0000					word 	0
+003A 0000 					word 	0
+003B 7FFF 					word 	$7FFF
+
+003C F700 					word 	$F700 																; heading NE
+003D F080					word 	$F080
+003E 0000 					word 	0
+003F 7FFF 					word 	$7FFF
+
+0040 FF80 					word 	$FF80
+0041 EF80					word 	$EF80 																; heading NW
+0042 0000 					word 	0
+0043 7FFF 					word 	$7FFF
+
+0044 9900 					word 	$9900
+0045 1000					word 	$1000 																; heading S
+0046 0000 					word 	0
+0047 7FFF 					word 	$7FFF
+
+0048 0210 					word 	$0210 																; heading N
+0049 F000					word 	$F000
+004A 0000 					word 	0
+004B 7FFF 					word 	$7FFF
+
+;
+;	4C-70 more torpedoes (?)
+;
+0070 0000 		Speeds:		word 	0 																	; speed rates
+0071 0020 					word 	$20
+0072 0012 					word 	$12
+0073 0000 					word 	0
+
+
+0074 F000		DirUp:		word	$F000 																; directional constants
+0075 0080		DirRight:	word 	$0080
+0076 1000 		DirDown: 	word 	$1000
+0077 FF80 		DirLeft: 	word 	$FF80
+
+0078 0045 		Commands1: 	word 	'E'																	; speed controls.
+0079 0044 					word 	'D'
+007A 0058 					word 	'X'
+007B 0051 					word 	'Q' 																; fire
+007C 0057 					word 	'W' 																; directions
+007D 0053 					word 	'S'
+007E 005A 					word 	'Z'
+007F 0041 					word 	'A'
+
+0080 0055 		Commands2: 	word 	'U'																	; speed controls.
+0081 0048 					word 	'H'
+0082 004E 					word 	'N'
+0083 0050 					word 	'P' 																; fire
+0084 0049 					word 	'I' 																; directions
+0085 004B 					word 	'K'
+0086 004D 					word 	'M'
+0087 004A 					word 	'J'
+
+0088 007F 		Const7F: 	word 	$7F 																; constants
+0089 0007 		Const7: 	word 	7
+008A 0080		SetFire:	word 	$80 																; time between firing.
+008B 014F	?
+008C 0002 		Const2:		word 	2
+
+;
+;				Interrupt Routine
+;
+	 			InterruptRoutine:
+008D 0E00					pflg 	14,0  																; pulse I/O 14 with AR = 0
+008E 0E40					pflg 	14,64 																; pulse I/O 14 with AR = $40 (enables 60Hz)
+008F 20F0					jmp 	Counters 															; increment counter and exit.
+;
+;				Move ship R1.
+;
+ 				MoveShip:
+00B1
+;
+;				Exit Interrupt Routine
+;
+00F0 78F3		Counters:	isz 	Count 																; bump the 60Hz Frame counter
+00F1 0010 					rti 																		; and exit (RTI twice because of skip)
+00F2 0010 					rti
+00F3 0000 		Count:		word 	0 																	; count the 60Hz counters
+
+;
+;	R3 contains location hit.
+;
+				Hit:
+0112
+
+				MoveTorpedo:
+0120
+
+				AInitialise:
+017C 8000 					li 		0,0 																; reset ship positions.
+017D A020 					st 		0,Ship1
+017E C080 					add 	0,$80 																; bug ? adds the contents of $80 not constant $80 ?
+017F A024 					st 		0,Ship2
+0180 2C0B 					jsr 	@AHit 																; bug ? AInit ????
+
+0181 841B 					ld 		1,MaxTorpedoes 														; reset the number of torpedoes
+0182 A41C 					st 		1,Hold
+
+0183 4E28 					li 		2,Torpedos 															; point R2 to torpedoes
+0184 4D01 					li 		1,1
+0185 4F02 					li 		3,2
+				AInitLoop1:
+0186 A602 					st 		1,2(2) 																; save 1 to speed.
+0187 AE03 					st 		3,3(2) 																; save 2 to moves
+0188 4A04 					aisz 	2,4 																; add 4 to 2
+0189 F908					skne 	2,torpedoEndPreset 													; skip if reset all the preset torpedoes (up to $4C)
+018A 4F00 					li 		3,0 																; moves will be zero for the rest
+018B 4910 					aisz 	1,10 																; but bump up the speed (bug ? too much ?)
+018C 7C1C 					dsz 	Hold 																; done all the torpedoes ?
+018D 21F8 					jmp 	AInitLoop1 															; keep on going.
+018E AC23 					st 		3,Ship1+3 															; set the ship speeds
+018F AC27 					st 		3,Ship2+3
+0190 AC1D 					st 		3,Freeze 															; save in freeze (why ?)
+0191 0200 					rts
+
+0192 004C 		torpedoEndPreset: word $4C 																; address of end of preset torpedoes
+
+;
+;		Initialise a new game.
+;
+				Initialise:
+019A 2100 					pflg 	14,64 																; enable 60Hz Interrupt
+019B 4C00 					li 		0,0 																; clear the 60Hz Counter.
+019C A0F3 					st 		0,Count 									
+019D 0900 					sflg 	1 																	; set flag 1
+				WaitFrame:
+019E F0F3 					skne 	0,Count 															; skip if the counter has been incremented
+019F 21FE 					jmp 	WaitFrame 															; otherwise keep waiting.
+
+01A0 2C04 					jsr 	@AInit  															; set everything up
+
+;
+; 		Main Loop
+;
+				Begin:
+01A1 2C03 					jsr 	@Keyboard 															; read the keyboard.
+
+01A2 841B 					ld 		1,MaxTorpedoes 														; get the number of torpedoes
+01A3 A405 					st 		1,TorpedoID 														; save as current
+				MoveTorpedoLoop:
+01A4 2C0E 					jsr 	@AMoveTorpedo 														; move torpedo.
+01A5 7C05 					dsz 	TorpedoID 															; do all the torpedos
+01A6 21FD 					jmp 	MoveTorpedoLoop
+
+01A7 4D01 					li 		1,1 																; move both ships.
+01A8 2C0D 					jsr 	@AMoveShip
+01A9 4D02 					li 		1,2
+01AA 2C0D 					jsr 	@AMoveShip 
+
+01AB 7C19 					dsz 	CanFire1 															; is p1 allowed to fire yet
+01AC 2101  					jmp 	TestFire2
+01AD 7819 					isz 	CanFire1 															; if so, leave 1 in there to show this
+				TestFire2:
+01AE 7C1A 					dsz 	CanFire2 															; is p2 allowed to fire yet
+01AF 2101 					jmp 	TestFireOver
+01B0 781A 					isz 	CanFire2 															; again, if can fire leave as 1.
+				TestFireOver:
+01B1 21EF 					jmp 	Begin 																; and go round again .....
+;
+;																Keyboard reading routine
+;
+				ReadKeyboardPatch:
+01B9 F060 					skne 	0,Blank 															; go to freeze if key is blank (e.g. space)
+01BA 2139 					jmp 	FreezeCheck
+01BB 210C 					jmp 	EInt
+				ReadKeyboard:
+01BC 4C00 					li 		0,0 																; clear the counter
+01BD 4D00 					li 		1,0
+01BE A4F3 					st 		1,Count 						
+				WaitKeyLoop:
+01BF F4F3 					skne 	1,Count 															; and wait for it to change.
+01C0 2101 					jmp 	ReadKeyboard2 														; no interrupt yet, so go read the keyboard
+01C1 21F7 					jmp 	KeyboardPatch 														; otherwise
+
+01C2 0F81 					pflg 	15,1 																; pulse the keyboard flag.
+01C3 1EFB 					boc 	14,WaitKeyLoop 														; if no keys found, go round again.
+
+01C4 2100 					nop 	0 																	; no-op, short delay to settle.
+01C5 0400 					rin 																		; read the key into R0.
+01C6 6088 					and 	0,Const7f 															; clear bit 7 (and any other upper bits)
+01C7 21F7 					jmp 	WaitKeyLoop  														; and go round again.
+
+				EInt:
+01C8 2100 					jmp 	EIntNext
+				EIntNext:
+01C9 112E 					boc 	1,Done 																; if no key pressed (R0 == 0) then exit.
+01CA 8895 
+
+
+				FreezeCheck:
+01F4 801D					ld 		0,Freeze 															; toggle freeze bit.
+01F5 4D01 					li 		1,1
+01F6 3482 					rxor 	0,1
+01F7 A01D 					st 		0,Freeze
+				Done:
+01F8 801D 					ld 		0,Freeze 															; read freeze into 0. 
+

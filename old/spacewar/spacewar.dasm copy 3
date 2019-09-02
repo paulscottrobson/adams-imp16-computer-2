@@ -1,0 +1,684 @@
+;
+;
+;
+;
+0000 2402 		Start:		
+							jmp 	@StartAddress 														; go to startup code.
+
+0001 208D 		Interrupt:																				; go to interrupt routine
+							jmp 	InterruptRoutine
+
+0002 001E		StartAddress:																			; address of startup code.
+							word 	Main
+
+0003 01BC		AKeyboard:	word 	ReadKeyboard
+0004 017C		AInit:		word 	Initialise
+
+0005 0000 		TorpedoID: 	word 	0 																	; currently moving torpedo.
+
+0006 FF80 		ConstFF80:	word 	$FF80 																; constants.
+0007 0000 		ConstZero:	word 	0
+
+0008 010B		AReadCrt:	word	ReadCRT 															; routine addreses.
+0009 00C9		AWriteCrt: 	word 	WriteCRT
+000A 0103 		AClear: 	word 	Clear
+000B 0112		AHit:		word 	Hit
+000C 015F		ACanMove:	word 	CanMove
+000D 01B1		AMoveShip:	word 	MoveShip
+000E 0120		AMoveTorpedo:word 	MoveTorpedo
+
+000F 0043 		CharShip1:	word	$43																	; C graphics characters used in game. 
+0010 0045 		CharShip2:	word 	$45 																; E
+0011 006B 		CharTorpedo:word 	$6B 																; +
+0012 003B 		CharPlanet: word 	$3B 																; O with horizontal bar, from 2513 L/C chip
+0013 006A 		CharAsteroid:word 	$6A  																; *
+0014 0060 		CharBlank:	word 	$60 																; space. 
+																									
+
+0015 0003 		Const3:		word 	3 																	; more constants
+
+0016 00C2		AHits2:		word 	Hits2
+0017 0010 		Speed: 		word 	$10 																; torpedo speed.
+0018 0104		AClearChar: word 	ClearToCharacter
+
+0019 0001 		CanFire1: 	word 	1
+001A 0002 		CanFire2: 	word 	1
+001B 0010		MaxTorpedoes:word 	$10 																; max number of torpedos QUERY there are only 9
+																										; and the others are never initialised anywhere.
+																										
+001C 0000 		Hold: 		word 	0
+001D 0000 		Freeze: 	word 	0
+
+001E 241F 		Main:		jmp		@InitVector
+001F 019A 		InitVector:	word 	NewGame
+
+0020 0000	 	Ship1: 		word 	0 																	; Line << 12 + Col << 7
+0021 1000 					word 	$1000 																; current direction
+0022 0000					word 	0 																	; timer
+0023 0000					word 	0 																	; speed
+
+0024 0000	 	Ship2: 		word 	0 																	; Line << 12 + Col << 7
+0025 1000 					word 	$1000 																; current direction
+0026 0000					word 	0 																	; timer
+0027 0000					word 	0 																	; speed
+
+0028 1100 		Torpedos: 	word 	$1100 																; Line << 12 + Col << 7 *PLANETS*
+0029 0000					word 	0 																	; Direction
+002A 0000 					word 	0 																	; Timer
+002B 7FFF 					word 	$7FFF 																; Number of moves
+
+002C 7F00 					word 	$7F00
+002D 0000					word 	0
+002E 0000 					word 	0
+002F 7FFF 					word 	$7FFF
+
+0030 D500 					word 	$D500
+0031 0000					word 	0
+0032 0000 					word 	0
+0033 7FFF 					word 	$7FFF
+
+0034 7A00 					word 	$6A00
+0035 0000					word 	0
+0036 0000 					word 	0
+0037 7FFF 					word 	$7FFF
+
+0038 A600 					word 	$A600
+0039 0000					word 	0
+003A 0000 					word 	0
+003B 7FFF 					word 	$7FFF
+
+003C F700 					word 	$F700 																; heading NE  * ASTEROIDS *
+003D F080					word 	$F080
+003E 0000 					word 	0
+003F 7FFF 					word 	$7FFF
+
+0040 FF80 					word 	$FF80
+0041 EF80					word 	$EF80 																; heading NW
+0042 0000 					word 	0
+0043 7FFF 					word 	$7FFF
+
+0044 9900 					word 	$9900
+0045 1000					word 	$1000 																; heading S
+0046 0000 					word 	0
+0047 7FFF 					word 	$7FFF
+
+0048 0210 					word 	$0210 																; heading N
+0049 F000					word 	$F000
+004A 0000 					word 	0
+004B 7FFF 					word 	$7FFF
+
+;
+;						4C-70 more torpedoes same layout ?
+;						actually $67 - $10 torpedoes, 4 bytes each, start at $28
+;
+
+
+006E 006E 		AHits:		Hits																		; code vector.
+006F 0000 		Ship:		word 	0 																	; current ship.
+
+0070 0000 		Speeds:		word 	0 																	; speed rates
+0071 0020 					word 	$20
+0072 0012 					word 	$12
+0073 0000 					word 	0
+
+
+0074 F000		DirUp:		word	$F000 																; directional constants
+0075 0080		DirRight:	word 	$0080
+0076 1000 		DirDown: 	word 	$1000
+0077 FF80 		DirLeft: 	word 	$FF80
+
+; ***************************************************************************************************************************************
+;
+;												List of Keyboard Commands
+;
+; ***************************************************************************************************************************************
+
+0078 0045 		Commands1: 	word 	'E'																	; speed controls.
+0079 0044 					word 	'D'
+007A 0058 					word 	'X'
+007B 0051 					word 	'Q' 																; fire
+007C 0057 					word 	'W' 																; directions
+007D 0053 					word 	'S'
+007E 005A 					word 	'Z'
+007F 0041 					word 	'A'
+
+0080 0055 		Commands2: 	word 	'U'																	; speed controls.
+0081 0048 					word 	'H'
+0082 004E 					word 	'N'
+0083 0050 					word 	'P' 																; fire
+0084 0049 					word 	'I' 																; directions
+0085 004B 					word 	'K'
+0086 004D 					word 	'M'
+0087 004A 					word 	'J'
+
+0088 007F 		Const7F: 	word 	$7F 																; constants
+0089 0007 		Const7: 	word 	7
+008A 0080		FireDelay:	word 	$80 																; time between firing.
+008B 014F		AFireTorpedo:word 	FireTorpedo
+008C 0002 		Const2:		word 	2
+
+; ***************************************************************************************************************************************
+;
+;																Interrupt Routine.
+;
+; ***************************************************************************************************************************************
+
+	 			InterruptRoutine:
+008D 0E00					pflg 	14,0  																; pulse I/O 14 with AR = $00 (resets flip/flop ?)
+008E 0E40					pflg 	14,64 																; pulse I/O 14 with AR = $40 (enables 60Hz)
+008F 20F0					jmp 	SetFrameFlag 														; set the frame flag and exit
+
+							org 	$95
+				CmdListEnd:	
+0095 0087					word 	Commands1+15 														; used by keyboard in routine.
+
+; ***************************************************************************************************************************************
+;
+;																Move ship R1.
+;
+; ***************************************************************************************************************************************
+							org 	$B0
+00B0 00B1 					word 	MoveShip 															; not actually used but left for completeness.
+
+ 				MoveShip:
+00B1 A46F 					st 		1,Ship  															; Save ship number
+00B2 2C0C 					jsr 	@ACanMove 															; can we move the ship ? (sets R2)
+00B3 1501 					boc 	5,MoveShip2 														; if returns non zero then we can and it has.
+00B4 0200 					rts 																		; otherwise we can't
+
+00B5 8603 					ld 		1,3(2) 																; copy speed to timer
+00B6 A602 					st 		1,2(2) 																; resetting it for the next time round
+				UpdateShip:
+00B7 8E00 					ld 		3,0(2) 																; read character at current position.
+00B8 2C08 					jsr 	@AReadCrt 	 	
+00B9 48A0 					aisz 	0,$A0 																; skip if $60 read (e.g. it is blank)
+00BA 2C08 					jsr 	@AHits 																; if not blank, then call the hit routine to check.
+
+00BB 886F 					ld 		2,Ship 																; read the ship number into R2
+00BC 820E 					ld 		0,CharShip1-1(2) 													; read the character to use in
+00BD 2C09 					jsr 	@AWriteCrt 															; and write to CRT.
+00BE 0200 					rts
+
+; ***************************************************************************************************************************************
+;
+;								Come here when hit. Fills the screen with the winning character
+;
+; ***************************************************************************************************************************************
+
+							org 	$C0
+
+00C0 886F		Hits: 		ld 		2,Ship 																; read ship number
+00C1 820E 					ld 		0,CharShip1-1(2) 													; read its associated character
+				Hits2:
+00C2 2C18 					jsr 	@AClearChar															; fill the screen with the character
+00C3 4C01 					li 		0,1 																; set the freeze flag.
+00C4 A01D 					st 		0,Freeze
+00C5 2C03 					jsr 	@Keyboard 															; read keyboard, which will wait till unfreeze
+00C6 4400 					pull 	1 																	; fix the stack up
+00C7 2000 					jmp 	Start 																; and restart.
+
+; ***************************************************************************************************************************************
+;
+;													Print R0 on the CRT at location R3
+;
+; ***************************************************************************************************************************************
+
+							org 	$C9
+				WriteCrt:
+
+00C9 4000 					push 	0 																	; save R0 on the stack							
+00CA 8906 					mov 	0,ConstFF80 														; get mask for address
+00CB 3383 					rand 	3,0 																; and location with mask (e.g. clear lower 7 bits)
+00CC 0F83 					pflg 	15,3 																; set to write to CRT.
+00CD 4400 					pull 	0 																	; restore the old R0
+00CE 062A 					rout 	$2A 																; sets the AR to address + $2A (TODO: Why $2A)
+																										; then outputs the character in R0 to it.
+00CF 0200 					rts 																		; return.
+
+; ***************************************************************************************************************************************
+;
+;															Exit Interrupt Routine
+;
+; ***************************************************************************************************************************************
+
+							org 	$F0
+00F0 78F3		Counters:	isz 	FrameFlag 															; set the frame flag to nonzero
+00F1 0010 					rti 																		; and exit (RTI twice because of skip)
+00F2 0010 					rti
+
+00F3 0000 		FrameFlag:	word 	0 																	; flag set after an INT has occurred
+
+; ***************************************************************************************************************************************
+;
+;													Patch to start of Fire Torpedo code
+;
+; ***************************************************************************************************************************************
+
+				PatchFireTorpedo:
+00F4 881B 					ld 		2,MaxTorpedoes 														; check get the maximum number of torpedoes
+00F5 4A09 					aisz 	2,9 																; add 9 to that. (?)
+00F6 24F7 					jmp 	@GoPatchEnd 														; and go back to the main code.
+00F7 0150		GoPatchEnd:	word 	EndPatchFireTorpedo
+
+; ***************************************************************************************************************************************
+;
+;														Patch to end of Ship Hit Code
+;
+; ***************************************************************************************************************************************
+
+				HitPatch:
+00F8 EC20					ld 		3,Ship1 															; get the location of ship1
+00F9 800F 					ld 		0,CharShip1 														; and redisplay it
+00FA 2C09 					jsr 	@AWriteCrt
+
+00FB EC24 					ld 		3,Ship2 															; same for ship 2
+00FC 8010 					ld 		0,CharShip2
+00FD 2C09 					jsr 	@AWriteCrt 
+
+00FE 0200 					rts
+
+
+; ***************************************************************************************************************************************
+;
+;																Clear Screen
+;
+; ***************************************************************************************************************************************
+
+							org	 	$103
+				Clear:
+0103 4C60 					li 		0,$60 																; code for blank
+				ClearToCharacter:
+0104 4F00 					li 		3,0 																; add 128 to 0 32 x 16 times .....
+				ClearLoop:
+0105 2C09 					jsr 	@AWriteCrt 	 														; write blanks to the display
+0106 CD03 					add 	3,x80 																; the address is stepped by 0x80 between characters
+																										; e.g. the upper 9 bits address 32 x 16 characters.
+0107 FC07 					skne    3,ConstZero 														; exit if zero (e.g. whole screen cleared)
+0108 0200 					ret
+0109 21FB 					jmp 	ClearLoop 															; otherwise keep clearing the screen. 
+
+010A 0080 		x80: 		word 	$80 																; constant used above.
+
+; ***************************************************************************************************************************************
+;
+;													  Read In Character at R3 to R0
+;
+; ***************************************************************************************************************************************
+
+				ReadCrt:
+010B 0F83 					pflg 	15,3 																; set to access the CRT Memory (TODO: Why $05 below ?)
+010C 0405 					rin 	$05 																; read in ($05 is the 6 bit 1's complement of $2A, mode = read)
+010D 6101 					and 	0,x7F 																; mask off lower 7 bits
+010E 0200 					ret
+
+010F 007F 		x7F:		word 	$007F 																; word used to mask keyboard input.
+
+
+; ***************************************************************************************************************************************
+;
+;												Deal with Hits R3 contains location hit.
+;
+; ***************************************************************************************************************************************
+
+							org 	$112
+				Hit:
+0112 AC1C 					st 		3,Hold 																; save location in holding register
+0113 4C30 					li 		0,0x30 	 															; probably ~ . Could be 3C, but that's a box graphic
+0114 2C18 					jsr 	@AClearChar 														; clear the whole screen to that graphic.
+
+0115 8C1C 					ld 		3,Hold 																; get location to clear
+0116 8014 					ld 		0,Blank 															; and clear it.
+0117 2C09 					jsr 	@AWriteCrt
+
+0118 4C40 					li 		0,$40 																; delay about 1 s
+				HitDelay:
+0119 E0F3 					skg 	0,FrameFlag 														; by waiting for the frame flag to reach 64
+011A 2101 					jmp 	EndHitDelay
+011B 21FD 					Jmp 	HitDelay
+				EndHitDelay:
+011C 2C0A 					jsr 	@AClear 															; clear the screen
+011D 20F8 					jmp 	HitPatch 															; go to the patch to write stuff back out
+
+; ***************************************************************************************************************************************
+;
+; 													Move current torpedo (ID in torpedoID)
+;
+; ***************************************************************************************************************************************
+
+							org 	$120
+				MoveTorpedo:
+0120 B405 					ld 		1,TorpedoID 														; get current torpedo number
+0121 4902 					aisz 	1,2 																; add 2 to torpedo number, can't skip
+																										; the torpedos are 2 4 bit records after the ship
+0122 2C0C 					jsr 	@ACanMove 															; can the torpedo move (sets up R2)
+0123 1501 					boc		5,MoveTorpedo2 														; if R0 != 0 it has moved
+0124 0200 					rts 
+
+	 			MoveTorpedo2:
+0125 7E03 					dsz 	3(2) 																; decrement the number of moves, skip if reached zero.
+0126 2101 					jmp 	TorpedoAlive
+0127 0200 					rts  																		; if zero, the torpedo is dead.
+
+				TorpedoAlive:
+0128 8E00 					ld 		3,0(2) 																; where has it moved to ?
+0129 2C08 					jsr 	@AReadCrt 															; read the screen there.
+012A 48A0 					aisz 	0,$A0 																; is it blank ?
+012B 2111 					jmp 	TorpedoDead 														; if not, then it's dead and may have killed something
+
+012C 8005 					ld 		0,TorpedoID 														; get the torpedo ID.
+012D 48FB 					aisz 	0,-5 																; is it one of the first five ? (planets)
+012E 1203 					boc 	2,NotPlanet 														; if >= 0 then it isn't a planet
+
+012F 8012 					ld 		0,CharPlanet 														; write a planet back there
+
+				TorpedoForever:
+0130 7A03 					isz 	3,(2) 																; make sure the asteroids always move, their counters
+																										; would reach zero eventually.
+0131 2105 					jmp 	EndMoveTorpedo
+
+				NotPlanet:
+0132 48F9 					aisz 	0,-9 																; is it an asteroid ?
+0133 1202 					boc 	2,NotAsteroid
+
+0134 8013 					ld 		0,CharAsteroid 														; write the asteroid back
+0135 21FA 					jmp 	TorpedoForever 														; and make it live forever.
+
+				NotAsteroid: 																			; write out the torpedo character.
+0136 8011 					ld 		0,CharTorpedo
+
+				EndMoveTorpedo:
+0137 2C09 					jsr 	@AWriteCrt 															; write to the position on the CRT
+0138 2100  					nop 	
+0139 2100					nop
+013A 8417 					ld 		1,Speed 															; copy speed into timer
+013B A602 					st 		1,2(2) 																; is this right QUERY - set to seperate speeds.
+013C 210D 					jmp 	TorpedoDone
+
+				TorpedoDead:
+013D 4000 					li 		1,0 																; reduce moves to zero, e.g. kill it
+013E A603     				st 		1,3(2)
+
+
+013F 4860 					aisz 	0,$60 																; fix character back after AISZ at $12A
+0140 F00F 					skne 	0,CharShip1 														; check if it a ship
+0141 2C16 					jsr 	@AHits2  															; if so display winner (QUERY: Jump/Stack ?)
+0142 F010 					skne 	0,CharShip2 														; Hits2 does a pull to fix up the stack but
+0143 2C16 					jsr 	@AHits2 															; after the JSR we will be two deep ?
+0144 2103 					jmp 	Dnz
+	
+							org 	$148
+				Dnz:
+0148 2C0B 					jsr 	@AHit 																; check to see if hit
+0149 0200 					rts 																		; and exit.
+
+
+				TorpedoDone:
+014A A81C					st 		2,Hold 																; save pointer.
+014B 8006					ld 		0,ConstFF80 														; and it with $FF80
+014C 701C					skaz 	0,Hold 																; checking addresses haven't gone haywire.
+014D 0000 					halt 																		; if they have, stop.
+014E 0200					ret
+
+; ***************************************************************************************************************************************
+;
+;											Fire torpedo, Index of source in R2
+;
+; ***************************************************************************************************************************************
+
+				FireTorpedo:
+014F 20F4					jmp 	PatchFireTorpedo 													; go to the torpedo patch.
+				EndPatchFireTorpedo: 																	; puts MaxTorpedoes + 9 into R2 (QUERY -9)
+
+0150 A81C 					st 		2,Hold 																; save this in holding store
+0151 4E48 					li 		2,Torpedos+$20 														; point R2 to the last of the 'fixed' torpedoes
+																										; so AISZ will go to first unused record.
+				FindUnusedTorpedo:
+0152 4A04 					aisz 	2,4 																; go to the next record
+0153 8203 					ld 		0,3(2) 																; read the life, e.g. is torpedo in use
+0154 1103 					boc 	1,FoundFreeTorpedo 													; if AC0 zero, then create new torpedo
+0155 7C1C  					dsz 	Hold 																; checked all of them (which makes +9 unlikely !)
+0156 21FB 					jmp 	FindUnusedTorpedo
+0157 21FB 					rts 																		; so cannot fire.
+
+				FoundFreeTorpedo:
+0157 A600 					st 		1,0(2) 																; save location
+0159 AE01 					st 		3,1(2) 																; save direction
+015A 4D01 					li 		1,1 																; set timer to 1
+015B A602 					st 		1,2(2)
+015C 4D0F 					li 		1,$20 																; how many moves it has (argument $0F or $20)
+015D A603 					st 		1,3(2) 	
+015E 0200 					rts 																		; and return. 
+
+; ***************************************************************************************************************************************
+;
+;  Check if movement of object ID R1 is possible, if not return zero, if so delete old, move it, and return non-zero (actually CharBlank)
+;
+; ***************************************************************************************************************************************
+
+				CanMove:
+015F 3681 					rcpy 	2,1 																; copy R1 (index) to R2
+0160 5E02 					shl 	2,2 																; multiply r2 x 4
+0161 4A1C 					aisz 	2,Ship1-4 															; now R2 points to the record
+
+0162 4C00 					li 		0,0
+0163 4F00 					li 		3,0
+0164 FE03 					skne 	3,3(2) 																; skip if lives counter > 0 e.g. can move
+0165 0200 					rts																			; can not move.
+
+0166 7E02 					dsz 	2(2) 																; decrement move counter, skip if that becomes zero.
+0167 0200 					rts
+
+0168 8E00 					ld 		3,0(2) 																; get the address into R3
+0169 8014 					ld 		0,CharBlank 														; and write a blank character there.
+016A 2C09 					jsr 	@AWriteCrt
+
+016B 8600 					ld 		1,0(2) 																; get physical address on screen
+016C C601 					add 	1,1(2) 																; add the direction to it
+016D A600 					st 		1,0(2) 																; update the physical address
+016E 0200 					rts 															
+
+; ***************************************************************************************************************************************
+;
+;																	Initialise Game
+;
+; ***************************************************************************************************************************************
+
+							org 	$17C
+				Initialise:
+017C 8000 					li 		0,0 																; reset ship positions.
+017D A020 					st 		0,Ship1
+017E C080 					add 	0,$80 																; QUERY adds the contents of $80 not constant $80 ?
+017F A024 					st 		0,Ship2
+0180 2C0B 					jsr 	@AHit 																; QUERY AClear - Hit call makes no sense.
+
+0181 841B 					ld 		1,MaxTorpedoes 														; set a counter of the number of torpedoes.
+0182 A41C 					st 		1,Hold
+
+0183 4E28 					li 		2,Torpedos 															; point R2 to torpedoes
+0184 4D01 					li 		1,1
+0185 4F02 					li 		3,2
+				AInitLoop1:
+0186 A602 					st 		1,2(2) 																; save 1 to torpedo speed.
+0187 AE03 					st 		3,3(2) 																; save 2 to torpedo moves
+0188 4A04 					aisz 	2,4 																
+0189 F908					skne 	2,torpedoEndPreset 													; skip if reset all the preset torpedoes (up to $4C)
+018A 4F00 					li 		3,0 																; moves will be zero for the rest
+018B 4910 					aisz 	1,10 																; but bump up the speed (QUERY too much ?)
+018C 7C1C 					dsz 	Hold 																; done all the torpedoes ?
+018D 21F8 					jmp 	AInitLoop1 															; keep on going.
+018E AC23 					st 		3,Ship1+3 															; set the ship speeds to zero
+018F AC27 					st 		3,Ship2+3
+0190 AC1D 					st 		3,Freeze 															; clear the freeze flag.
+0191 0200 					rts
+
+0192 004C 		torpedoEndPreset: word $4C 																; address of end of preset torpedoes
+
+; ***************************************************************************************************************************************
+;
+;																Begin a new game.
+;
+; ***************************************************************************************************************************************
+
+							org 	$19A
+				NewGame:
+019A 2100 					pflg 	14,64 																; enable 60Hz Interrupt hardware
+019B 4C00 					li 		0,0 																; clear the 60Hz Frame Flag clocked in that interrupt.
+019C A0F3 					st 		0,FrameFlag 									
+019D 0900 					sflg 	1 																	; turn IMP-16 interrupts on.
+				WaitFrame:
+019E F0F3 					skne 	0,FrameFlag 														; skip if frame flag has been set.
+019F 21FE 					jmp 	WaitFrame 															; otherwise keep waiting.
+
+01A0 2C04 					jsr 	@AInit  															; set everything up
+
+; ***************************************************************************************************************************************
+;
+; 																Main Loop
+;
+; ***************************************************************************************************************************************
+
+				Begin:
+01A1 2C03 					jsr 	@AKeyboard 															; read the keyboard.
+
+01A2 841B 					ld 		1,MaxTorpedoes 														; get the number of torpedoes
+01A3 A405 					st 		1,TorpedoID 														; save as current
+				MoveTorpedoLoop:
+01A4 2C0E 					jsr 	@AMoveTorpedo 														; move torpedo.
+01A5 7C05 					dsz 	TorpedoID 															; do all the torpedos
+01A6 21FD 					jmp 	MoveTorpedoLoop
+
+01A7 4D01 					li 		1,1 																; move both ships.
+01A8 2C0D 					jsr 	@AMoveShip
+01A9 4D02 					li 		1,2
+01AA 2C0D 					jsr 	@AMoveShip 
+
+01AB 7C19 					dsz 	CanFire1 															; is p1 allowed to fire yet
+01AC 2101  					jmp 	TestFire2
+01AD 7819 					isz 	CanFire1 															; if so, leave 1 in there to show this
+				TestFire2:
+01AE 7C1A 					dsz 	CanFire2 															; is p2 allowed to fire yet
+01AF 2101 					jmp 	TestFireOver
+01B0 781A 					isz 	CanFire2 															; again, if can fire leave as 1.
+				TestFireOver:
+01B1 21EF 					jmp 	Begin 																; and go round again .....
+
+; ***************************************************************************************************************************************
+;
+;																Keyboard reading routine
+;
+; ***************************************************************************************************************************************
+
+							org 	$1B9
+				ReadKeyboardPatch:
+01B9 F060 					skne 	0,Blank 															; go to freeze if key is blank (e.g. space)
+01BA 2139 					jmp 	FreezeCheck
+01BB 210C 					jmp 	EInt
+				ReadKeyboard:
+01BC 4C00 					li 		0,0 																; clear the data read value
+01BD 4D00 					li 		1,0 																; clear the 60Hz frame flag
+01BE A4F3 					st 		1,FrameFlag 						
+				WaitKeyLoop:
+01BF F4F3 					skne 	1,FrameFlag 														; if frame flag clear (no 60Hz) go to pulse flag. 
+01C0 2101 					jmp 	ReadKeyboard2 														; no interrupt yet, so go read the keyboard
+01C1 21F7 					jmp 	KeyboardPatch 														; otherwise check for blank (e.g. space) pressed.
+
+				ReadKeyboard2:
+01C2 0F81 					pflg 	15,1 																; pulse the keyboard flag 
+01C3 1EFB 					boc 	14,WaitKeyLoop 														; if no key press found, go round again.
+
+01C4 2100 					nop 	 																	; no-op, short delay to settle.
+01C5 0400 					rin 																		; read the key into R0.
+01C6 6088 					and 	0,Const7f 															; clear bit 7 (and any other upper bits)
+01C7 21F7 					jmp 	WaitKeyLoop  														; and go round again.
+
+				EInt:
+01C8 2100 					jmp 	EIntNext
+				EIntNext:
+01C9 112E 					boc 	1,Done 																; if no key pressed (R0 == 0) then exit.
+01CA 8896 					ld 		2,	CmdListEnd														; point to last command.
+01CB 4D10 					li 		1,$10 																; count of commands to check
+01CC A41C 					st 		1,Hold
+				CheckNextCommand:
+01CD F200 					skne 	0,0(2) 																; character found ?
+01CE 2105 					jmp 	Match 																; yes, process it.
+01CF 4AFF 					aisz 	2,-1 																; point to previous character
+01D0 2100 					nop 	0 																	; ignore skip
+01D1 7C1C 					dsz 	Hold 																; if checked all of them.
+01D2 21FA 					jmp		CheckNextCommand 													; skip, otherwise do the next.
+01D3 2124 					jmp 	Done 																; no command match
+
+				Match:
+01D4 7C1C 					dsz 	Hold 																; decrement hold (e.g. the command number goes 00-0F)
+01D5 2100 					nop 	0 																	; no skip
+01D6 881C 					ld 		2,Hold 																; read that into 2.
+01D7 5EED 					shr 	2,3 																; divide by 8
+01D8 5E02 					shl 	2,2 																; now 2 is 0 or 4, depending
+
+01D9 4D07 					li 		1,7 																; mask for command
+01DA 8C1C 					ld 		3,Hold 																; re read the key
+01DB 3783 					rand 	3,1 																; 3 now contains the lower 3 bits of the command
+																										; 2 the player, 0 or 4 (e.g. offset into the Ship1/Ship2)
+
+01DC EC8C 					skg 	3,Const2 															; if command > 2 (e.g. a speed command)
+01DD 2106 					jmp 	SetSpeed 															; then set the speed.
+
+01DE FC15 					skne 	3,Const3 															; if command = 3 (e.g. fire)
+01DF 210A 					jmp 	Fire
+
+01E0 2100 					nop 																		; direction code 4-7
+01E1 8770  					ld 		1,DirUp-4(3) 														; access the relevant entry in the direction table
+01E2 A621 					st 		1,Ship1+1(2) 														; store in the direction word
+01E3 2114 					jmp 	Done 																; and exit
+
+01E4 2100 					nop 																		; speed 0-2
+01E5 8770 					ld 		1,Speeds(3) 														; get the speed.
+01E6 A623 					st 		1,Ship1+3(2) 														; store in both speed and move down counter
+01E7 2100 					nop 
+01E8 A622 					st 		1,Ship1+2(2)
+01E9 210E 					jmp 	Done 																; and exit
+
+01EA 8E21 					ld 		3,Ship1+1(2) 														; AC3 = Direction
+01EB 8620 					ld 		1,Ship1(2) 															; AC1 = Location
+01EC 210E 					jmp 	MovementPatch 														; go to the patch code
+
+				EndMovementPatch:
+01ED 8219 					ld 		0,CanFire1(2) 														; look at the fire counter
+01EE 48FF 					aisz 	0,-1 																; is it 1, skip if so
+01EF 2108					jmp 	Done 																; if > 1, cannot fire
+
+01F0 808A 					ld 		0,FireDelay 														; set the fire counter rate
+01F1 A219 					st 		0,CanFire1(2) 														; in the fire delay counter
+01F2 2C8B 					jsr 	@AFireTorpedo 														; fire torpedo, current player.
+01F3 2104 					jmp 	Done 																; and end.
+
+				FreezeCheck:
+01F4 801D					ld 		0,Freeze 															; toggle freeze bit.
+01F5 4D01 					li 		1,1
+01F6 3482 					rxor 	0,1
+01F7 A01D 					st 		0,Freeze
+				Done:
+01F8 801D 					ld 		0,Freeze 															; read freeze into 0. 
+01F9 15C2 					boc 	5,ReadKeyboard 														; if non-zero, then keep reading, this is wait mode.
+01FA 0200 					rts
+
+				MovementPatch:
+01FB 3100 					radd 	1,3 																; this is the location of the position moving 2
+01FC 5EFE 					shr 	2,2 																; convert R2 back from offset to ID (divide by 4)
+01FD 21EF 					jmp 	EndMovementPatch
+
+;	Questions
+;	---------
+;
+; the screen fills with '@' characters. Appears to be a transcription bug. In Initialize (0x17C) there is a jsr *ASomething that is transcribed as 2C0B
+; but this is the 'hit' test routine (probably why the other emulator fills the screen with at signs). There is another routine which clears the screen
+; which would be addressed via 2C0A (on the 0x0C9 page) which is never used and logically fits here.
+
+; did the torpedoes move at the same rate ? initially their speeds are set to different values, but they are all set to the same speed in the move loop
+; the start positions of the ships
+
+; why when writing or reading memory are the lower bits of AR set to $05 and $2A which are 6 bit complements of each other - is this setting R/W gating ?
+
+; is 15 an event driven keyboard latch ? pulse 15 clocks the contents of that latch in and then clears it, e.g. it is returning key depressions not the
+; current keyboard state ?
+
+
