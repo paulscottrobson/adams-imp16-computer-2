@@ -44,7 +44,6 @@
 :WORD16 	MAR,MDR; 						// Memory address and Data Register
 :WORD16 	IR;								// Instruction Register
 
-:WORD16* 	pAC[4]={ &AC0,&AC1,&AC2,&AC3 };	// Access via number.
 :LONG32 	temp32;							// 32 bit temporary.
 
 // *********************************************************************************
@@ -164,33 +163,33 @@
 // *********************************************************************************
 
 00010001- 	"BOC 1,%S"						// Branch (AC0 = 0)
-		BRANCH(AC0 == 0);
+		$EAR;BRANCH(AC0 == 0);
 
 00010010- 	"BOC 2,%S"						// Branch (AC0 >= 0)
-		BRANCH((AC0 & 0x8000) == 0);
+		$EAR;BRANCH((AC0 & 0x8000) == 0);
 
 00010011- 	"BOC 3,%S"						// Branch (AC0 bit 0 set)
-		BRANCH((AC0 & 0x0001) != 0);
+		$EAR;BRANCH((AC0 & 0x0001) != 0);
 
 00010100- 	"BOC 4,%S"						// Branch (AC0 bit 1 set)
-		BRANCH((AC0 & 0x0002) != 0);
+		$EAR;BRANCH((AC0 & 0x0002) != 0);
 
 00010101- 	"BOC 5,%S"						// Branch (AC0 != 0)
-		BRANCH(AC0 != 0);
+		$EAR;BRANCH(AC0 != 0);
 
 00011000- 	"BOC 8,%S"						// Branch (Stack Overflow)
-		BRANCH((SPTR & 0xF0) != 0);
+		$EAR;BRANCH((SPTR & 0xF0) != 0);
 
 00011001- 	"BOC 9,%S"						// Branch (Int Enabled)
-		BRANCH(INTEN != 0);
+		$EAR;BRANCH(INTEN != 0);
 
 00011010- 	"BOC 10,%S"						// Branch (Carry/Overflow set)
-		BRANCH((SEL == 0) ? CY:OV );
+		$EAR;BRANCH((SEL == 0) ? CY:OV );
 
 00011011- 	"BOC 11,%S"						// Branch (AC0 <= 0)
-		BRANCH((AC0 == 0) || ((AC0 & 0x8000) != 0));
+		$EAR;BRANCH((AC0 == 0) || ((AC0 & 0x8000) != 0));
 
-:#define BRANCH(t) if (t) { $EAR;PC = MAR; }
+:#define BRANCH(t) if (t) PC = MAR;
 
 // *********************************************************************************
 //
@@ -288,7 +287,7 @@
 :		case 2: *pdr ^= *psr;break;								// RXOR
 :		case 3: *pdr &= *psr;break;								// RAND
 :	}
-:)		
+:}
 
 // *********************************************************************************
 //
