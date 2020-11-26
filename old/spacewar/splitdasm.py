@@ -34,8 +34,8 @@ srcFile.close()
 
 binFile = open("spacewar.bin","wb")
 for i in range(0,512):
-	binFile.write(chr(binaryDump[i]/256))
-	binFile.write(chr(binaryDump[i]%256))
+	binFile.write(bytes([binaryDump[i] >> 8]))
+	binFile.write(bytes([binaryDump[i]%256]))
 binFile.close()
 
 open("spacewar.h","w").write("static WORDCONST _spaceWar[] = { " +  (",".join([ "0x{0:04x}".format(s) for s in binaryDump ])) + "};\n")

@@ -58,7 +58,7 @@ class Expression:
 				result = ord(term[1].upper()) % 64 + 64
 			else:
 				result = self.identifierStore.get(term) 							# all others are identifiers.
-		except ValueError, e: 														# map format errors onto assembler errors.
+		except ValueError as e: 													# map format errors onto assembler errors.
 			raise AssemblerException("Bad number format "+term)
 
 		return result
@@ -333,60 +333,60 @@ class OpcodeHash:
 		self.opcodes = {}															# empty hash.
 
 		h = { "ld":0x8000, "st":0xA000 }											# Memory Reference Instructions
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = MemoryReferenceInstruction(base)
 
 		h = { "add":0xC000, "sub":0xD000, "skg":0xE000,"skne":0xF000 }				# Register memory operations
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = RegisterReferenceInstruction(base)
 
 		h = { "and":0x6000, "or":0x6800,"skaz":0x7000 }								# Limited register/memory ops
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = LimitedRegisterReferenceInstruction(base)
 
 		h = { "isz":0x7800, "dsz":0x7C00 }											# Address only, no indirection
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = AdjustSkipInstruction(base)
 
 		h = { "jmp":0x2000, "jsr":0x2800 }											# Jump and Call
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = JumpInstruction(base)
 
 		h = { "boc":0x1000 }														# Conditional Branch
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = BranchInstruction(base)
 
 		h = { "rti":0x0100, "rts":0x0200, "rin":0x0400, "rout":0x0600 }				# 7 bit immediate optional parameter
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = Default7BitInstruction(base)
 
 		h = { "jsri": 0x0380 }														# jsr last 128 words
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = JSRIInstruction(base)
 
 		h = { "rol": 0x5800, "ror": 0x5800, "shl": 0x5C00, "shr":0x5C00 }			# Rotates.
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = RotateInstruction(base)
 			self.opcodes[mnemonic].setRightRotation(mnemonic[-1] == "r")
 
 		h = { "push":0x4000, "pull":0x4400, "xchrs":0x5400 }						# only a single register
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = SingleRegisterInstruction(base)
 
 		h = { "li":	0x4C00 , "aisz":0x4800, "cai":0x5000 }							# 8 bit signed immediate
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = ImmediateInstruction(base)
 
 		h = { "radd": 0x3000,"rxch": 0x3080, "rcpy":0x3081, "rxor": 0x3082, "rand": 0x3083 }		# register to register
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = RegisterToRegisterInstruction(base)
 
 		h = { "halt": 0x0000, "nop": 0x2100, "pushf": 0x0080,"pullf": 0x0280, }		# no operands at all
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = SimpleInstruction(base)
 
 		h = { "sflg": 0x0800, "pflg": 0x0880 }										# Flag Instructions
-		for mnemonic,base in h.iteritems():
+		for mnemonic,base in h.items():
 			self.opcodes[mnemonic] = FlagInstruction(base)
 
 		self.opcodes["word"] = WordInstruction(0x0000) 								# and the word
@@ -468,3 +468,5 @@ asm = Assembler(src)
 asm.pass1()
 asm.pass2()
 print("Done !")
+
+
